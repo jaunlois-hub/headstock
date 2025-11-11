@@ -77,9 +77,7 @@ const GuitarTuner = () => {
         const closest = pitches.reduce((a, b) =>
           Math.abs(b.freq - freq) < Math.abs(a.freq - freq) ? b : a
         );
-        const cents = 1200 * Math.log2(freq / closest.freq);
-        const centsStr = cents > 0 ? ` +${cents.toFixed(0)}¢` : ` ${cents.toFixed(0)}¢`;
-        setCurrentNote(`${closest.name}${centsStr}`);
+        setCurrentNote(`${closest.name} (${freq.toFixed(1)} Hz)`);
       }
 
       animationFrameRef.current = requestAnimationFrame(loop);
