@@ -2,8 +2,10 @@ const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="text-center px-4 py-8 text-sm text-muted-foreground">
-      © {currentYear} Headstock Productions
+    <footer className="border-t border-border px-6 py-12 text-center">
+      <p className="text-sm text-muted-foreground uppercase tracking-wider">
+        © {currentYear} Headstock Studio. All Rights Reserved.
+      </p>
     </footer>
   );
 };

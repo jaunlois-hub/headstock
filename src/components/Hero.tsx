@@ -2,24 +2,21 @@ import { Button } from "@/components/ui/button";
 
 const Hero = () => {
   return (
-    <section className="px-4 md:px-12 py-16 md:py-32 relative overflow-hidden">
-      <div 
-        className="absolute inset-0 opacity-30"
-        style={{ background: 'var(--gradient-hero)' }}
-      />
-      <div className="max-w-4xl relative z-10 animate-fade-in">
-        <h1 className="text-4xl md:text-7xl font-bold mb-6 leading-tight">
-          Your sound.
-          <span className="block text-primary">Our passion.</span>
+    <section className="min-h-screen flex items-center justify-center px-6 md:px-12 pt-20">
+      <div className="max-w-5xl w-full text-center animate-fade-in">
+        <h1 className="text-5xl md:text-8xl font-bold mb-8 leading-tight tracking-tight">
+          Record Your Sound.<br />
+          Define Your Legacy.
         </h1>
-        <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mb-4">
-          South Africa's independent music label dedicated to elevating emerging artists. From production to distribution, radio plugging to visual content—we provide everything you need to make your mark in the music industry.
+        <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-12">
+          Professional music production, engineering, and artist services. We are where your vision comes to life.
         </p>
-        <p className="text-base md:text-lg text-muted-foreground max-w-2xl mb-8">
-          Fair deals. Real support. Global reach.
-        </p>
-        <Button asChild size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold shadow-lg hover:shadow-xl transition-all">
-          <a href="#submit">Submit your demo</a>
+        <Button 
+          asChild 
+          size="lg" 
+          className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-6 text-base uppercase tracking-wider"
+        >
+          <a href="#services">Explore Our Services</a>
         </Button>
       </div>
     </section>

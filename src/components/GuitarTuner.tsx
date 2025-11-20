@@ -1,10 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Mic, MicOff } from "lucide-react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
+
+type TuningState = "tuned" | "sharp" | "flat";
 
 type Tuning = {
   name: string;
@@ -15,114 +15,171 @@ const tunings: Record<string, Tuning> = {
   standard: {
     name: "Standard (EADGBE)",
     strings: [
-      { name: "E", freq: 82.41, label: "E (82 Hz)" },
-      { name: "A", freq: 110.0, label: "A (110 Hz)" },
-      { name: "D", freq: 146.83, label: "D (147 Hz)" },
-      { name: "G", freq: 196.0, label: "G (196 Hz)" },
-      { name: "B", freq: 246.94, label: "B (247 Hz)" },
-      { name: "E4", freq: 329.63, label: "E (330 Hz)" },
+      { name: "E", freq: 82.41, label: "6th String" },
+      { name: "A", freq: 110.0, label: "5th String" },
+      { name: "D", freq: 146.83, label: "4th String" },
+      { name: "G", freq: 196.0, label: "3rd String" },
+      { name: "B", freq: 246.94, label: "2nd String" },
+      { name: "E4", freq: 329.63, label: "1st String" },
     ],
   },
   dropD: {
     name: "Drop D (DADGBE)",
     strings: [
-      { name: "D", freq: 73.42, label: "D (73 Hz)" },
-      { name: "A", freq: 110.0, label: "A (110 Hz)" },
-      { name: "D3", freq: 146.83, label: "D (147 Hz)" },
-      { name: "G", freq: 196.0, label: "G (196 Hz)" },
-      { name: "B", freq: 246.94, label: "B (247 Hz)" },
-      { name: "E", freq: 329.63, label: "E (330 Hz)" },
+      { name: "D", freq: 73.42, label: "6th String" },
+      { name: "A", freq: 110.0, label: "5th String" },
+      { name: "D3", freq: 146.83, label: "4th String" },
+      { name: "G", freq: 196.0, label: "3rd String" },
+      { name: "B", freq: 246.94, label: "2nd String" },
+      { name: "E", freq: 329.63, label: "1st String" },
     ],
   },
   dadgad: {
     name: "DADGAD",
     strings: [
-      { name: "D", freq: 73.42, label: "D (73 Hz)" },
-      { name: "A", freq: 110.0, label: "A (110 Hz)" },
-      { name: "D3", freq: 146.83, label: "D (147 Hz)" },
-      { name: "G", freq: 196.0, label: "G (196 Hz)" },
-      { name: "A4", freq: 220.0, label: "A (220 Hz)" },
-      { name: "D5", freq: 293.66, label: "D (294 Hz)" },
+      { name: "D", freq: 73.42, label: "6th String" },
+      { name: "A", freq: 110.0, label: "5th String" },
+      { name: "D3", freq: 146.83, label: "4th String" },
+      { name: "G", freq: 196.0, label: "3rd String" },
+      { name: "A4", freq: 220.0, label: "2nd String" },
+      { name: "D5", freq: 293.66, label: "1st String" },
     ],
   },
   openG: {
     name: "Open G (DGDGBD)",
     strings: [
-      { name: "D", freq: 73.42, label: "D (73 Hz)" },
-      { name: "G2", freq: 98.0, label: "G (98 Hz)" },
-      { name: "D3", freq: 146.83, label: "D (147 Hz)" },
-      { name: "G", freq: 196.0, label: "G (196 Hz)" },
-      { name: "B", freq: 246.94, label: "B (247 Hz)" },
-      { name: "D5", freq: 293.66, label: "D (294 Hz)" },
+      { name: "D", freq: 73.42, label: "6th String" },
+      { name: "G2", freq: 98.0, label: "5th String" },
+      { name: "D3", freq: 146.83, label: "4th String" },
+      { name: "G", freq: 196.0, label: "3rd String" },
+      { name: "B", freq: 246.94, label: "2nd String" },
+      { name: "D5", freq: 293.66, label: "1st String" },
     ],
   },
   halfStep: {
     name: "Half Step Down",
     strings: [
-      { name: "Eb", freq: 77.78, label: "Eb (78 Hz)" },
-      { name: "Ab", freq: 103.83, label: "Ab (104 Hz)" },
-      { name: "Db", freq: 138.59, label: "Db (139 Hz)" },
-      { name: "Gb", freq: 185.0, label: "Gb (185 Hz)" },
-      { name: "Bb", freq: 233.08, label: "Bb (233 Hz)" },
-      { name: "Eb4", freq: 311.13, label: "Eb (311 Hz)" },
+      { name: "Eb", freq: 77.78, label: "6th String" },
+      { name: "Ab", freq: 103.83, label: "5th String" },
+      { name: "Db", freq: 138.59, label: "4th String" },
+      { name: "Gb", freq: 185.0, label: "3rd String" },
+      { name: "Bb", freq: 233.08, label: "2nd String" },
+      { name: "Eb4", freq: 311.13, label: "1st String" },
     ],
   },
 };
 
 const GuitarTuner = () => {
-  const [currentNote, setCurrentNote] = useState("–");
+  return (
+    <section id="tuner" className="px-6 md:px-12 py-24 md:py-32">
+      <div className="max-w-5xl mx-auto text-center">
+        <h2 className="text-4xl md:text-6xl font-bold mb-4 tracking-tight">Online Guitar Tuner</h2>
+        <p className="text-lg text-muted-foreground mb-16 uppercase tracking-wider">A440 TUNER</p>
+        
+        <TunerInterface />
+      </div>
+    </section>
+  );
+};
+
+const TunerInterface = () => {
+  const [currentNote, setCurrentNote] = useState<string>("");
   const [isListening, setIsListening] = useState(false);
-  const [selectedTuning, setSelectedTuning] = useState<string>("standard");
+  const [selectedTuning, setSelectedTuning] = useState<keyof typeof tunings>("standard");
   const [isPolyphonic, setIsPolyphonic] = useState(false);
-  const [stringStates, setStringStates] = useState<Record<string, { freq: number; state: "tuned" | "sharp" | "flat" | "inactive" }>>({});
-  
-  const streamRef = useRef<MediaStream | null>(null);
+  const [stringStates, setStringStates] = useState<{ [key: string]: TuningState }>({});
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
-  const currentStrings = tunings[selectedTuning].strings;
-  const allPitches = Object.values(tunings).flatMap(t => 
-    t.strings.map(s => ({ name: s.name, freq: s.freq }))
-  );
-
   const playTone = (freq: number, noteName: string) => {
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-
-    oscillator.type = "sine";
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    
+    const audioContext = audioContextRef.current;
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
     oscillator.frequency.value = freq;
-    gainNode.gain.value = 0.3;
+    oscillator.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 1);
 
-    oscillator.connect(gainNode).connect(audioCtx.destination);
-    oscillator.start();
-
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1);
-    oscillator.stop(audioCtx.currentTime + 1);
-
-    setCurrentNote(noteName);
-    setTimeout(() => setCurrentNote("–"), 1000);
+    toast(`Playing ${noteName}: ${freq.toFixed(1)} Hz`);
   };
 
   const autoCorrelate = (buffer: Float32Array, sampleRate: number): number => {
-    const SIZE = buffer.length;
-    let rMax = 0;
-    let rMaxLag = 0;
+    let SIZE = buffer.length;
+    let sumOfSquares = 0;
+    for (let i = 0; i < SIZE; i++) {
+      const val = buffer[i];
+      sumOfSquares += val * val;
+    }
+    const rootMeanSquare = Math.sqrt(sumOfSquares / SIZE);
+    if (rootMeanSquare < 0.01) return -1;
 
-    for (let lag = 40; lag < SIZE / 2; lag++) {
-      let sum = 0;
-      for (let i = 0; i < SIZE - lag; i++) {
-        sum += buffer[i] * buffer[i + lag];
+    let r1 = 0;
+    let r2 = SIZE - 1;
+    const threshold = 0.2;
+    
+    for (let i = 0; i < SIZE / 2; i++) {
+      if (Math.abs(buffer[i]) < threshold) {
+        r1 = i;
+        break;
       }
-      if (sum > rMax) {
-        rMax = sum;
-        rMaxLag = lag;
+    }
+    
+    for (let i = 1; i < SIZE / 2; i++) {
+      if (Math.abs(buffer[SIZE - i]) < threshold) {
+        r2 = SIZE - i;
+        break;
       }
     }
 
-    return rMax > 0.01 ? sampleRate / rMaxLag : -1;
+    buffer = buffer.slice(r1, r2);
+    SIZE = buffer.length;
+
+    const c = new Array(SIZE).fill(0);
+    for (let i = 0; i < SIZE; i++) {
+      for (let j = 0; j < SIZE - i; j++) {
+        c[i] = c[i] + buffer[j] * buffer[j + i];
+      }
+    }
+
+    let d = 0;
+    while (c[d] > c[d + 1]) d++;
+    
+    let maxval = -1;
+    let maxpos = -1;
+    for (let i = d; i < SIZE; i++) {
+      if (c[i] > maxval) {
+        maxval = c[i];
+        maxpos = i;
+      }
+    }
+    
+    let T0 = maxpos;
+
+    const x1 = c[T0 - 1];
+    const x2 = c[T0];
+    const x3 = c[T0 + 1];
+    const a = (x1 + x3 - 2 * x2) / 2;
+    const b = (x3 - x1) / 2;
+    if (a) T0 = T0 - b / (2 * a);
+
+    return sampleRate / T0;
   };
 
-  const getTuningState = (freq: number, targetFreq: number): "tuned" | "sharp" | "flat" => {
+  const getTuningState = (freq: number, targetFreq: number): TuningState => {
     const cents = 1200 * Math.log2(freq / targetFreq);
     if (Math.abs(cents) < 5) return "tuned";
     return cents > 0 ? "sharp" : "flat";
@@ -130,208 +187,200 @@ const GuitarTuner = () => {
 
   const detectPitch = (analyser: AnalyserNode, sampleRate: number) => {
     const buffer = new Float32Array(analyser.fftSize);
-
-    const loop = () => {
-      analyser.getFloatTimeDomainData(buffer);
-      const freq = autoCorrelate(buffer, sampleRate);
-
-      if (freq > 0) {
-        const closest = allPitches.reduce((a, b) =>
-          Math.abs(b.freq - freq) < Math.abs(a.freq - freq) ? b : a
-        );
-
-        if (isPolyphonic) {
-          // Update string states for polyphonic mode
-          const newStates = { ...stringStates };
-          currentStrings.forEach(string => {
-            const diff = Math.abs(string.freq - freq);
-            if (diff < 10) { // Within 10 Hz tolerance
-              const state = getTuningState(freq, string.freq);
-              newStates[string.name] = { freq, state };
-            }
-          });
-          setStringStates(newStates);
-          setCurrentNote(`${closest.name} (${freq.toFixed(1)} Hz)`);
-        } else {
-          // Single note mode
-          setCurrentNote(`${closest.name} (${freq.toFixed(1)} Hz)`);
+    analyser.getFloatTimeDomainData(buffer);
+    
+    const freq = autoCorrelate(buffer, sampleRate);
+    
+    if (freq > 0) {
+      const tuning = tunings[selectedTuning];
+      const allNotes = [...tuning.strings];
+      
+      let closest = allNotes[0];
+      let minDiff = Math.abs(freq - closest.freq);
+      
+      for (const note of allNotes) {
+        const diff = Math.abs(freq - note.freq);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closest = note;
         }
       }
+      
+      if (minDiff < closest.freq * 0.1) {
+        setCurrentNote(`${closest.name} (${freq.toFixed(1)} Hz)`);
 
-      animationFrameRef.current = requestAnimationFrame(loop);
-    };
-
-    loop();
+        if (isPolyphonic) {
+          const state = getTuningState(freq, closest.freq);
+          setStringStates(prev => ({
+            ...prev,
+            [closest.name]: state
+          }));
+        }
+      }
+    }
+    
+    animationFrameRef.current = requestAnimationFrame(() => detectPitch(analyser, sampleRate));
   };
 
   const startMicTuner = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const analyser = audioCtx.createAnalyser();
-      const source = audioCtx.createMediaStreamSource(stream);
-
-      analyser.fftSize = 4096;
+      micStreamRef.current = stream;
+      
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      
+      const audioContext = audioContextRef.current;
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 8192;
       source.connect(analyser);
-
+      analyserRef.current = analyser;
+      
       setIsListening(true);
-      detectPitch(analyser, audioCtx.sampleRate);
-      toast.success(isPolyphonic ? "Polyphonic tuner activated" : "Microphone tuner activated");
-    } catch (err) {
-      toast.error("Microphone access denied");
-      console.error(err);
+      detectPitch(analyser, audioContext.sampleRate);
+      
+      toast("Microphone active - start playing");
+    } catch (error) {
+      toast("Please allow microphone access");
     }
   };
 
   const stopMicTuner = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
     }
+    
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach(track => track.stop());
+      micStreamRef.current = null;
+    }
+    
     setIsListening(false);
-    setCurrentNote("–");
+    setCurrentNote("");
     setStringStates({});
-    toast.info("Microphone tuner stopped");
   };
 
   const handleTuningChange = (value: string) => {
-    setSelectedTuning(value);
-    setStringStates({});
+    setSelectedTuning(value as keyof typeof tunings);
     if (isListening) {
       stopMicTuner();
     }
-    toast.success(`Switched to ${tunings[value].name}`);
+    setStringStates({});
   };
 
-  return (
-    <section id="tuner" className="px-4 md:px-12 py-16 md:py-24">
-      <Card className="bg-card border-border p-8 md:p-12">
-        <h2 className="text-3xl md:text-5xl font-bold mb-2 text-center">Guitar Tuner</h2>
-        <p className="text-muted-foreground text-center mb-8">Tune your guitar with precision</p>
-        
-        {/* Controls */}
-        <div className="flex flex-col md:flex-row gap-6 mb-8 max-w-2xl mx-auto">
-          <div className="flex-1">
-            <Label className="text-sm font-medium mb-2 block">Tuning</Label>
-            <Select value={selectedTuning} onValueChange={handleTuningChange}>
-              <SelectTrigger className="w-full bg-background border-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-popover border-border">
-                {Object.entries(tunings).map(([key, tuning]) => (
-                  <SelectItem key={key} value={key} className="cursor-pointer">
-                    {tuning.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="flex-1 flex items-end">
-            <Button
-              onClick={() => {
-                setIsPolyphonic(!isPolyphonic);
-                setStringStates({});
-                if (isListening) {
-                  stopMicTuner();
-                }
-                toast.success(`${!isPolyphonic ? "Polyphonic" : "Single note"} mode activated`);
-              }}
-              variant="outline"
-              className="w-full"
-            >
-              {isPolyphonic ? "Polyphonic Mode" : "Single Note Mode"}
-            </Button>
-          </div>
-        </div>
+  useEffect(() => {
+    return () => {
+      stopMicTuner();
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
 
-        {/* Display */}
-        {isPolyphonic && isListening ? (
-          <div className="mb-8">
-            <div className="text-center mb-6">
-              <div className="text-4xl md:text-5xl font-bold text-primary min-h-[60px] flex items-center justify-center">
-                {currentNote}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 max-w-4xl mx-auto">
-              {currentStrings.map((string) => {
-                const state = stringStates[string.name];
-                const stateColor = state?.state === "tuned" 
-                  ? "border-primary bg-primary/10 text-primary" 
-                  : state?.state === "sharp"
-                  ? "border-destructive bg-destructive/10 text-destructive"
-                  : state?.state === "flat"
-                  ? "border-yellow-500 bg-yellow-500/10 text-yellow-500"
-                  : "border-border bg-background text-muted-foreground";
-                
-                return (
-                  <div
-                    key={string.label}
-                    className={`p-4 rounded-lg border-2 transition-all ${stateColor}`}
-                  >
-                    <div className="text-center">
-                      <div className="text-xl font-bold">{string.name}</div>
-                      <div className="text-xs opacity-75">{string.freq.toFixed(0)} Hz</div>
-                      {state && (
-                        <div className="text-xs mt-1 font-semibold">
-                          {state.state === "tuned" ? "✓" : state.state === "sharp" ? "↑" : "↓"}
-                        </div>
-                      )}
-                    </div>
+  const tuning = tunings[selectedTuning];
+
+  return (
+    <div className="space-y-12">
+      <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <Select value={selectedTuning} onValueChange={handleTuningChange}>
+          <SelectTrigger className="w-[240px] bg-input border-border uppercase tracking-wider h-12">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="standard">Standard (E-A-D-G-B-E)</SelectItem>
+            <SelectItem value="dropD">Drop D (D-A-D-G-B-E)</SelectItem>
+            <SelectItem value="dadgad">DADGAD</SelectItem>
+            <SelectItem value="openG">Open G (D-G-D-G-B-D)</SelectItem>
+            <SelectItem value="halfStep">Half Step Down</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Button
+          variant={isPolyphonic ? "default" : "outline"}
+          size="lg"
+          onClick={() => setIsPolyphonic(!isPolyphonic)}
+          className="uppercase tracking-wider"
+        >
+          {isPolyphonic ? 'Polyphonic' : 'Single Note'}
+        </Button>
+      </div>
+
+      {isPolyphonic && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+          {tuning.strings.map((string) => {
+            const state = stringStates[string.name];
+            return (
+              <Card
+                key={string.name}
+                className={`p-6 text-center transition-all duration-300 ${
+                  state === "tuned" 
+                    ? "border-green-500 bg-green-500/5" 
+                    : state === "sharp"
+                    ? "border-red-500 bg-red-500/5"
+                    : state === "flat"
+                    ? "border-yellow-500 bg-yellow-500/5"
+                    : "border-border"
+                }`}
+              >
+                <div className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">{string.label}</div>
+                <div className="text-3xl font-bold mb-2">{string.name}</div>
+                <div className="text-xs text-muted-foreground">{string.freq.toFixed(1)} Hz</div>
+                {state && (
+                  <div className={`text-xs mt-3 uppercase tracking-wider font-bold ${
+                    state === "tuned" ? "text-green-500" : 
+                    state === "sharp" ? "text-red-500" : "text-yellow-500"
+                  }`}>
+                    {state}
                   </div>
-                );
-              })}
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="border-2 border-border p-16 min-h-[240px] flex flex-col items-center justify-center">
+        {currentNote ? (
+          <>
+            <div className="text-7xl md:text-9xl font-bold mb-4 tracking-tight">
+              {currentNote.split(' ')[0]}
             </div>
-          </div>
+            <div className="text-xl text-muted-foreground uppercase tracking-wider">
+              {currentNote.split(' ').slice(1).join(' ')}
+            </div>
+          </>
         ) : (
-          <div className="text-5xl md:text-7xl font-bold mb-8 text-primary min-h-[100px] flex items-center justify-center">
-            {currentNote}
+          <div className="text-xl text-muted-foreground uppercase tracking-wider">
+            {isListening ? "Play a note..." : "Select Note"}
           </div>
         )}
+      </div>
 
-        {/* Reference Tones */}
-        <div className="flex flex-wrap justify-center gap-3 mb-8">
-          {currentStrings.map((string) => (
-            <Button
-              key={string.label}
-              variant="secondary"
-              onClick={() => playTone(string.freq, string.name)}
-              className="font-medium hover:bg-secondary/80"
-            >
-              {string.label}
-            </Button>
-          ))}
-        </div>
-
-        {/* Mic Button */}
-        <div className="text-center">
+      <div className="flex flex-wrap gap-3 justify-center">
+        {tuning.strings.map((string) => (
           <Button
-            onClick={isListening ? stopMicTuner : startMicTuner}
-            size="lg"
-            variant={isListening ? "destructive" : "default"}
-            className={`font-bold ${isListening ? "" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
+            key={string.name}
+            variant="outline"
+            onClick={() => playTone(string.freq, string.name)}
+            className="uppercase tracking-wider min-w-[80px]"
           >
-            {isListening ? (
-              <>
-                <MicOff className="mr-2 h-5 w-5" />
-                Stop microphone
-              </>
-            ) : (
-              <>
-                <Mic className="mr-2 h-5 w-5" />
-                Use microphone
-              </>
-            )}
+            {string.name}
           </Button>
-        </div>
-      </Card>
-    </section>
+        ))}
+      </div>
+
+      <div className="flex justify-center">
+        <Button
+          onClick={isListening ? stopMicTuner : startMicTuner}
+          size="lg"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 px-16 h-14 uppercase tracking-wider text-base"
+        >
+          {isListening ? 'Stop Tuner' : 'Start Tuner'}
+        </Button>
+      </div>
+    </div>
   );
 };
 
