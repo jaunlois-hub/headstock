@@ -17,8 +17,21 @@ const Header = () => {
     { href: "#contact", label: "Contact" },
   ];
 
-  const handleLinkClick = () => {
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    e.preventDefault();
     setIsOpen(false);
+    
+    const target = document.querySelector(href);
+    if (target) {
+      const headerOffset = 80;
+      const elementPosition = target.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth"
+      });
+    }
   };
 
   return (
@@ -34,6 +47,7 @@ const Header = () => {
             <a
               key={link.href}
               href={link.href}
+              onClick={(e) => handleLinkClick(e, link.href)}
               className="text-sm uppercase tracking-wider text-foreground/80 hover:text-foreground transition-colors"
             >
               {link.label}
@@ -52,7 +66,7 @@ const Header = () => {
                 <a
                   key={link.href}
                   href={link.href}
-                  onClick={handleLinkClick}
+                  onClick={(e) => handleLinkClick(e, link.href)}
                   className="text-lg uppercase tracking-wider text-foreground/80 hover:text-foreground transition-colors"
                 >
                   {link.label}
