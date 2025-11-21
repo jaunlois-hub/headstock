@@ -3,9 +3,9 @@ import logo from "@/assets/headstock-logo.svg";
 const Header = () => {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-      <div className="flex justify-between items-center px-6 md:px-12 py-4 md:py-6">
-        <a href="/" className="flex items-center">
-          <img src={logo} alt="Headstock Studio" className="h-12 md:h-20 w-auto" />
+      <div className="flex justify-between items-center px-4 md:px-12 py-3 md:py-6">
+        <a href="/" className="flex items-center flex-shrink-0">
+          <img src={logo} alt="Headstock Studio" className="h-16 md:h-20 w-auto max-w-[200px] md:max-w-none" />
         </a>
         <nav className="flex gap-6 md:gap-8">
           <a 
