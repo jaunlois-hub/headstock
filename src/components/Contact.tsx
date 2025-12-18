@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { MessageCircle, Mail, Phone } from "lucide-react";
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -44,24 +45,21 @@ const Contact = () => {
           <div className="space-y-6">
             <h3 className="text-2xl font-semibold mb-6">Contact Details</h3>
             <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <span className="text-primary font-semibold">WhatsApp:</span>
-                <a href="https://wa.me/27604763078" className="text-foreground/80 hover:text-foreground transition-colors">
-                  060 476 3078
-                </a>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-primary font-semibold">Email:</span>
-                <a href="mailto:info@headstock.co.za" className="text-foreground/80 hover:text-foreground transition-colors">
-                  info@headstock.co.za
-                </a>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-primary font-semibold">Phone:</span>
-                <a href="tel:+27780992341" className="text-foreground/80 hover:text-foreground transition-colors">
-                  078 099 2341
-                </a>
-              </div>
+              <a href="https://wa.me/27604763078" className="flex items-center gap-3 text-foreground/80 hover:text-foreground transition-colors group">
+                <MessageCircle className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
+                <span className="font-semibold">WhatsApp:</span>
+                <span>060 476 3078</span>
+              </a>
+              <a href="mailto:info@headstock.co.za" className="flex items-center gap-3 text-foreground/80 hover:text-foreground transition-colors group">
+                <Mail className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
+                <span className="font-semibold">Email:</span>
+                <span>info@headstock.co.za</span>
+              </a>
+              <a href="tel:+27780992341" className="flex items-center gap-3 text-foreground/80 hover:text-foreground transition-colors group">
+                <Phone className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
+                <span className="font-semibold">Phone:</span>
+                <span>078 099 2341</span>
+              </a>
             </div>
           </div>
           

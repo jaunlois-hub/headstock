@@ -14,6 +14,8 @@ const Header = () => {
     { href: "#about", label: "About" },
     { href: "#services", label: "Services" },
     { href: "#tuner", label: "Tuner" },
+    { href: "#tune-in-motion", label: "Online Tuner" },
+    { href: "#tune-along", label: "Tune Along" },
     { href: "#contact", label: "Contact" },
   ];
 
