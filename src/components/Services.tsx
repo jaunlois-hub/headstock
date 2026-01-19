@@ -1,5 +1,7 @@
+import { motion } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { Music, Radio, Video, Palette, FileText, Lightbulb } from "lucide-react";
+import ScrollReveal from "@/components/ScrollReveal";
 
 const services = [
   {
@@ -38,25 +40,38 @@ const Services = () => {
   return (
     <section id="services" className="px-6 md:px-12 py-24 md:py-32">
       <div className="max-w-6xl mx-auto">
-        <h2 className="text-4xl md:text-6xl font-bold mb-16 tracking-tight text-center">Our Services</h2>
+        <ScrollReveal>
+          <h2 className="text-4xl md:text-6xl font-bold mb-16 tracking-tight text-center">Our Services</h2>
+        </ScrollReveal>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {services.map((service, index) => {
             const Icon = service.icon;
             return (
-              <Card
+              <motion.div
                 key={service.title}
-                className="bg-card border-border p-8 hover:border-primary transition-all duration-300 group"
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ 
+                  duration: 0.5, 
+                  delay: index * 0.1,
+                  ease: [0.25, 0.1, 0.25, 1]
+                }}
               >
-                <div className="mb-6 text-foreground group-hover:scale-110 transition-transform duration-300">
-                  <Icon size={32} strokeWidth={1.5} />
-                </div>
-                <h3 className="text-xl font-bold mb-3 text-foreground uppercase tracking-wide">
-                  {service.title}
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {service.description}
-                </p>
-              </Card>
+                <Card
+                  className="bg-card border-border p-8 hover:border-primary transition-all duration-300 group h-full"
+                >
+                  <div className="mb-6 text-foreground group-hover:scale-110 transition-transform duration-300">
+                    <Icon size={32} strokeWidth={1.5} />
+                  </div>
+                  <h3 className="text-xl font-bold mb-3 text-foreground uppercase tracking-wide">
+                    {service.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {service.description}
+                  </p>
+                </Card>
+              </motion.div>
             );
           })}
         </div>
