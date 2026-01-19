@@ -69,7 +69,20 @@ const tunings: Record<string, Tuning> = {
   },
 };
 
-const GuitarTuner = () => {
+interface GuitarTunerProps {
+  embedded?: boolean;
+}
+
+const GuitarTuner = ({ embedded = false }: GuitarTunerProps) => {
+  if (embedded) {
+    return (
+      <div className="text-center">
+        <p className="text-lg text-muted-foreground mb-12 uppercase tracking-wider">A440 TUNER</p>
+        <TunerInterface />
+      </div>
+    );
+  }
+
   return (
     <section id="tuner" className="px-6 md:px-12 py-24 md:py-32">
       <div className="max-w-5xl mx-auto text-center">
