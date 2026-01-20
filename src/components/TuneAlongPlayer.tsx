@@ -31,6 +31,9 @@ const TuneAlongPlayer = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const oscillatorRef = useRef<OscillatorNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const patternIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -52,8 +55,68 @@ const TuneAlongPlayer = () => {
   const createAudioContext = useCallback(() => {
     if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Create analyser node
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 256;
+      analyserRef.current.connect(audioContextRef.current.destination);
     }
     return audioContextRef.current;
+  }, []);
+
+  // Waveform visualizer drawing
+  const drawWaveform = useCallback(() => {
+    if (!canvasRef.current || !analyserRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const analyser = analyserRef.current;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const draw = () => {
+      animationFrameRef.current = requestAnimationFrame(draw);
+      
+      analyser.getByteFrequencyData(dataArray);
+      
+      ctx.fillStyle = 'hsl(var(--card))';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      const barWidth = (canvas.width / bufferLength) * 2.5;
+      let x = 0;
+      
+      for (let i = 0; i < bufferLength; i++) {
+        const barHeight = (dataArray[i] / 255) * canvas.height * 0.8;
+        
+        // Create gradient effect
+        const gradient = ctx.createLinearGradient(0, canvas.height - barHeight, 0, canvas.height);
+        gradient.addColorStop(0, 'hsl(var(--primary))');
+        gradient.addColorStop(1, 'hsl(var(--primary) / 0.3)');
+        
+        ctx.fillStyle = gradient;
+        ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+        
+        x += barWidth + 1;
+      }
+    };
+
+    draw();
+  }, []);
+
+  const stopWaveform = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    // Clear canvas
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = 'hsl(var(--card))';
+        ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+    }
   }, []);
 
   const playPattern = useCallback((track: Track) => {
@@ -61,8 +124,12 @@ const TuneAlongPlayer = () => {
     stopAudio();
 
     gainNodeRef.current = ctx.createGain();
-    gainNodeRef.current.connect(ctx.destination);
+    // Connect to analyser instead of directly to destination
+    gainNodeRef.current.connect(analyserRef.current!);
     gainNodeRef.current.gain.value = (isMuted ? 0 : volume) / 100 * 0.3;
+    
+    // Start waveform visualization
+    drawWaveform();
 
     const playNote = (freq: number, duration: number = 0.5, delay: number = 0) => {
       const osc = ctx.createOscillator();
@@ -142,11 +209,12 @@ const TuneAlongPlayer = () => {
         }, 250);
         break;
     }
-  }, [volume, isMuted, createAudioContext, stopAudio]);
+  }, [volume, isMuted, createAudioContext, stopAudio, drawWaveform]);
 
   const handlePlayPause = useCallback(async () => {
     if (isPlaying) {
       stopAudio();
+      stopWaveform();
       setIsPlaying(false);
     } else {
       setIsLoading(true);
@@ -162,7 +230,7 @@ const TuneAlongPlayer = () => {
       }
       setIsLoading(false);
     }
-  }, [isPlaying, currentTrack, playPattern, stopAudio, createAudioContext]);
+  }, [isPlaying, currentTrack, playPattern, stopAudio, stopWaveform, createAudioContext]);
 
   const handleNext = useCallback(() => {
     const currentIndex = sampleTracks.findIndex((t) => t.id === currentTrack.id);
@@ -217,11 +285,12 @@ const TuneAlongPlayer = () => {
   useEffect(() => {
     return () => {
       stopAudio();
+      stopWaveform();
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
     };
-  }, [stopAudio]);
+  }, [stopAudio, stopWaveform]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -268,7 +337,7 @@ const TuneAlongPlayer = () => {
     <div className="w-full max-w-4xl mx-auto">
       {/* Now Playing */}
       <div className="bg-card border border-border rounded-xl p-6 mb-6">
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4 mb-4">
           <div className="w-16 h-16 bg-primary/10 rounded-lg flex items-center justify-center relative">
             <Music className={`w-8 h-8 text-primary ${isPlaying ? 'animate-pulse' : ''}`} />
             {isPlaying && (
@@ -280,6 +349,16 @@ const TuneAlongPlayer = () => {
             <p className="text-muted-foreground text-sm">{currentTrack.artist}</p>
             <p className="text-xs text-primary/70 capitalize mt-1">Pattern: {currentTrack.pattern}</p>
           </div>
+        </div>
+
+        {/* Waveform Visualizer */}
+        <div className="mb-4 rounded-lg overflow-hidden border border-border bg-card">
+          <canvas
+            ref={canvasRef}
+            width={800}
+            height={100}
+            className="w-full h-24"
+          />
         </div>
 
         {/* Progress Bar */}
