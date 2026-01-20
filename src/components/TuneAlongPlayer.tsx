@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Music, Loader2 } from "lucide-react";
+import { 
+  Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, 
+  Music, Loader2, BarChart3, Activity, Circle, Palette 
+} from "lucide-react";
 
 interface Track {
   id: string;
@@ -11,6 +14,17 @@ interface Track {
   frequency: number;
   pattern: "steady" | "arpeggio" | "chord" | "scale" | "rhythm";
 }
+
+type VisualizerMode = "bars" | "oscilloscope" | "circular";
+type VisualizerTheme = "classic" | "neon" | "fire" | "ocean" | "monochrome";
+
+const visualizerThemes: Record<VisualizerTheme, { primary: string; secondary: string; bg: string }> = {
+  classic: { primary: "255, 255, 255", secondary: "200, 200, 200", bg: "0, 0, 0" },
+  neon: { primary: "0, 255, 136", secondary: "255, 0, 255", bg: "10, 10, 30" },
+  fire: { primary: "255, 100, 0", secondary: "255, 200, 0", bg: "20, 5, 0" },
+  ocean: { primary: "0, 150, 255", secondary: "0, 255, 200", bg: "0, 20, 40" },
+  monochrome: { primary: "255, 255, 255", secondary: "128, 128, 128", bg: "0, 0, 0" },
+};
 
 const sampleTracks: Track[] = [
   { id: "1", title: "Standard Tuning Practice", artist: "Headstock Studio", duration: 30, frequency: 329.63, pattern: "steady" },
@@ -27,12 +41,15 @@ const TuneAlongPlayer = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [volume, setVolume] = useState(75);
   const [isMuted, setIsMuted] = useState(false);
+  const [visualizerMode, setVisualizerMode] = useState<VisualizerMode>("bars");
+  const [visualizerTheme, setVisualizerTheme] = useState<VisualizerTheme>("classic");
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const oscillatorRef = useRef<OscillatorNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const circularCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const patternIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -55,19 +72,138 @@ const TuneAlongPlayer = () => {
   const createAudioContext = useCallback(() => {
     if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      // Create analyser node
       analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
+      analyserRef.current.fftSize = 512;
       analyserRef.current.connect(audioContextRef.current.destination);
     }
     return audioContextRef.current;
   }, []);
 
-  // Waveform visualizer drawing
-  const drawWaveform = useCallback(() => {
-    if (!canvasRef.current || !analyserRef.current) return;
+  const getThemeColors = useCallback(() => {
+    return visualizerThemes[visualizerTheme];
+  }, [visualizerTheme]);
+
+  // Bar visualizer
+  const drawBars = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, dataArray: Uint8Array, bufferLength: number) => {
+    const theme = getThemeColors();
     
-    const canvas = canvasRef.current;
+    ctx.fillStyle = `rgb(${theme.bg})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    const barWidth = (canvas.width / bufferLength) * 2.5;
+    let x = 0;
+    
+    for (let i = 0; i < bufferLength; i++) {
+      const barHeight = (dataArray[i] / 255) * canvas.height * 0.8;
+      
+      const gradient = ctx.createLinearGradient(0, canvas.height - barHeight, 0, canvas.height);
+      gradient.addColorStop(0, `rgba(${theme.primary}, 1)`);
+      gradient.addColorStop(1, `rgba(${theme.secondary}, 0.5)`);
+      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+      
+      x += barWidth + 1;
+    }
+  }, [getThemeColors]);
+
+  // Oscilloscope visualizer
+  const drawOscilloscope = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, analyser: AnalyserNode) => {
+    const theme = getThemeColors();
+    const bufferLength = analyser.fftSize;
+    const dataArray = new Uint8Array(bufferLength);
+    analyser.getByteTimeDomainData(dataArray);
+    
+    ctx.fillStyle = `rgb(${theme.bg})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = `rgb(${theme.primary})`;
+    ctx.beginPath();
+    
+    const sliceWidth = canvas.width / bufferLength;
+    let x = 0;
+    
+    for (let i = 0; i < bufferLength; i++) {
+      const v = dataArray[i] / 128.0;
+      const y = (v * canvas.height) / 2;
+      
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+      
+      x += sliceWidth;
+    }
+    
+    ctx.lineTo(canvas.width, canvas.height / 2);
+    ctx.stroke();
+    
+    // Add glow effect
+    ctx.shadowColor = `rgb(${theme.primary})`;
+    ctx.shadowBlur = 10;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }, [getThemeColors]);
+
+  // Circular visualizer
+  const drawCircular = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, dataArray: Uint8Array, bufferLength: number) => {
+    const theme = getThemeColors();
+    
+    ctx.fillStyle = `rgba(${theme.bg}, 0.1)`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = Math.min(centerX, centerY) * 0.4;
+    
+    // Draw center circle
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${theme.primary}, 0.3)`;
+    ctx.fill();
+    
+    // Draw frequency bars in a circle
+    const bars = 64;
+    const step = Math.floor(bufferLength / bars);
+    
+    for (let i = 0; i < bars; i++) {
+      const amplitude = dataArray[i * step] / 255;
+      const barHeight = amplitude * radius * 1.5;
+      const angle = (i / bars) * Math.PI * 2 - Math.PI / 2;
+      
+      const x1 = centerX + Math.cos(angle) * radius;
+      const y1 = centerY + Math.sin(angle) * radius;
+      const x2 = centerX + Math.cos(angle) * (radius + barHeight);
+      const y2 = centerY + Math.sin(angle) * (radius + barHeight);
+      
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.lineWidth = 3;
+      
+      // Gradient color based on amplitude
+      const hue = (i / bars) * 60 + (visualizerTheme === 'fire' ? 0 : visualizerTheme === 'ocean' ? 180 : visualizerTheme === 'neon' ? 120 : 0);
+      ctx.strokeStyle = visualizerTheme === 'monochrome' || visualizerTheme === 'classic' 
+        ? `rgba(${theme.primary}, ${0.5 + amplitude * 0.5})`
+        : `hsla(${hue}, 100%, ${50 + amplitude * 30}%, ${0.5 + amplitude * 0.5})`;
+      
+      ctx.stroke();
+    }
+    
+    // Inner glow
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius * 0.5, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(${theme.primary}, 0.5)`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }, [getThemeColors, visualizerTheme]);
+
+  const drawWaveform = useCallback(() => {
+    const canvas = visualizerMode === 'circular' ? circularCanvasRef.current : canvasRef.current;
+    if (!canvas || !analyserRef.current) return;
+    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -80,55 +216,55 @@ const TuneAlongPlayer = () => {
       
       analyser.getByteFrequencyData(dataArray);
       
-      ctx.fillStyle = 'hsl(var(--card))';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      const barWidth = (canvas.width / bufferLength) * 2.5;
-      let x = 0;
-      
-      for (let i = 0; i < bufferLength; i++) {
-        const barHeight = (dataArray[i] / 255) * canvas.height * 0.8;
-        
-        // Create gradient effect
-        const gradient = ctx.createLinearGradient(0, canvas.height - barHeight, 0, canvas.height);
-        gradient.addColorStop(0, 'hsl(var(--primary))');
-        gradient.addColorStop(1, 'hsl(var(--primary) / 0.3)');
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
-        
-        x += barWidth + 1;
+      switch (visualizerMode) {
+        case 'bars':
+          drawBars(ctx, canvas, dataArray, bufferLength);
+          break;
+        case 'oscilloscope':
+          drawOscilloscope(ctx, canvas, analyser);
+          break;
+        case 'circular':
+          drawCircular(ctx, canvas, dataArray, bufferLength);
+          break;
       }
     };
 
     draw();
-  }, []);
+  }, [visualizerMode, drawBars, drawOscilloscope, drawCircular]);
 
   const stopWaveform = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
-    // Clear canvas
-    if (canvasRef.current) {
-      const ctx = canvasRef.current.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = 'hsl(var(--card))';
-        ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    const theme = getThemeColors();
+    [canvasRef.current, circularCanvasRef.current].forEach(canvas => {
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = `rgb(${theme.bg})`;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
       }
+    });
+  }, [getThemeColors]);
+
+  // Restart visualizer when mode or theme changes
+  useEffect(() => {
+    if (isPlaying && analyserRef.current) {
+      stopWaveform();
+      drawWaveform();
     }
-  }, []);
+  }, [visualizerMode, visualizerTheme, isPlaying, drawWaveform, stopWaveform]);
 
   const playPattern = useCallback((track: Track) => {
     const ctx = createAudioContext();
     stopAudio();
 
     gainNodeRef.current = ctx.createGain();
-    // Connect to analyser instead of directly to destination
     gainNodeRef.current.connect(analyserRef.current!);
     gainNodeRef.current.gain.value = (isMuted ? 0 : volume) / 100 * 0.3;
     
-    // Start waveform visualization
     drawWaveform();
 
     const playNote = (freq: number, duration: number = 0.5, delay: number = 0) => {
@@ -333,6 +469,14 @@ const TuneAlongPlayer = () => {
     }
   };
 
+  const themeLabels: Record<VisualizerTheme, string> = {
+    classic: "Classic",
+    neon: "Neon",
+    fire: "Fire",
+    ocean: "Ocean",
+    monochrome: "Mono",
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto">
       {/* Now Playing */}
@@ -351,15 +495,97 @@ const TuneAlongPlayer = () => {
           </div>
         </div>
 
-        {/* Waveform Visualizer */}
-        <div className="mb-4 rounded-lg overflow-hidden border border-border bg-card">
-          <canvas
-            ref={canvasRef}
-            width={800}
-            height={100}
-            className="w-full h-24"
-          />
+        {/* Visualizer Mode & Theme Controls */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Mode:</span>
+            <div className="flex gap-1">
+              <Button
+                variant={visualizerMode === 'bars' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setVisualizerMode('bars')}
+                className="h-8 px-3"
+              >
+                <BarChart3 className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={visualizerMode === 'oscilloscope' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setVisualizerMode('oscilloscope')}
+                className="h-8 px-3"
+              >
+                <Activity className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={visualizerMode === 'circular' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setVisualizerMode('circular')}
+                className="h-8 px-3"
+              >
+                <Circle className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Palette className="w-4 h-4 text-muted-foreground" />
+            <div className="flex gap-1">
+              {(Object.keys(visualizerThemes) as VisualizerTheme[]).map((theme) => (
+                <Button
+                  key={theme}
+                  variant={visualizerTheme === theme ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setVisualizerTheme(theme)}
+                  className="h-7 px-2 text-xs"
+                >
+                  {themeLabels[theme]}
+                </Button>
+              ))}
+            </div>
+          </div>
         </div>
+
+        {/* Waveform Visualizer (Bars & Oscilloscope) */}
+        {visualizerMode !== 'circular' && (
+          <div className="mb-4 rounded-lg overflow-hidden border border-border">
+            <canvas
+              ref={canvasRef}
+              width={800}
+              height={120}
+              className="w-full h-28"
+            />
+          </div>
+        )}
+
+        {/* Circular Visualizer */}
+        {visualizerMode === 'circular' && (
+          <div className="mb-4 flex justify-center">
+            <div className="relative">
+              <canvas
+                ref={circularCanvasRef}
+                width={280}
+                height={280}
+                className="rounded-full border border-border"
+              />
+              {/* Play button overlay in center */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <Button
+                  onClick={handlePlayPause}
+                  disabled={isLoading}
+                  className="h-16 w-16 rounded-full bg-primary/90 hover:bg-primary pointer-events-auto shadow-lg"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-7 w-7 animate-spin" />
+                  ) : isPlaying ? (
+                    <Pause className="h-7 w-7" />
+                  ) : (
+                    <Play className="h-7 w-7 ml-1" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Progress Bar */}
         <div className="mb-4">
@@ -376,38 +602,62 @@ const TuneAlongPlayer = () => {
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center justify-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handlePrevious}
-            className="h-10 w-10"
-          >
-            <SkipBack className="h-5 w-5" />
-          </Button>
-          <Button
-            onClick={handlePlayPause}
-            disabled={isLoading}
-            className="h-14 w-14 rounded-full bg-primary hover:bg-primary/90"
-          >
-            {isLoading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
-            ) : isPlaying ? (
-              <Pause className="h-6 w-6" />
-            ) : (
-              <Play className="h-6 w-6 ml-0.5" />
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleNext}
-            className="h-10 w-10"
-          >
-            <SkipForward className="h-5 w-5" />
-          </Button>
-        </div>
+        {/* Controls (hidden when circular mode - button is in center) */}
+        {visualizerMode !== 'circular' && (
+          <div className="flex items-center justify-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePrevious}
+              className="h-10 w-10"
+            >
+              <SkipBack className="h-5 w-5" />
+            </Button>
+            <Button
+              onClick={handlePlayPause}
+              disabled={isLoading}
+              className="h-14 w-14 rounded-full bg-primary hover:bg-primary/90"
+            >
+              {isLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : isPlaying ? (
+                <Pause className="h-6 w-6" />
+              ) : (
+                <Play className="h-6 w-6 ml-0.5" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNext}
+              className="h-10 w-10"
+            >
+              <SkipForward className="h-5 w-5" />
+            </Button>
+          </div>
+        )}
+
+        {/* Skip buttons for circular mode */}
+        {visualizerMode === 'circular' && (
+          <div className="flex items-center justify-center gap-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handlePrevious}
+              className="h-10 w-10"
+            >
+              <SkipBack className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleNext}
+              className="h-10 w-10"
+            >
+              <SkipForward className="h-5 w-5" />
+            </Button>
+          </div>
+        )}
 
         {/* Volume */}
         <div className="flex items-center justify-center gap-3 mt-4">
